@@ -487,12 +487,12 @@ async def download_media(
                     player_clients=attempt["clients"],
                 )
                 info = _ydl_extract(ydl_opts, url, download=True)
-                    title = info.get("title") if info else "media"
-                    loop.call_soon_threadsafe(queue.put_nowait, {
-                        "type": "worker_done",
-                        "title": title
-                    })
-                    return
+                title = info.get("title") if info else "media"
+                loop.call_soon_threadsafe(queue.put_nowait, {
+                    "type": "worker_done",
+                    "title": title
+                })
+                return
             except Exception as e:
                 last_error = e
                 continue
