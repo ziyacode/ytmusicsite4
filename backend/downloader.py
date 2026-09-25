@@ -164,7 +164,7 @@ def build_ydl_opts(
     use_cookies: bool = True,
     player_clients: list[str] | None = None,
 ) -> dict:
-    clients = player_clients or ["android_vr", "tv", "tv_simply", "web_safari"]
+    clients = player_clients or ["mweb"]
     bgutil_base_url = os.getenv(
         "BGUTIL_BASE_URL",
         "https://bgutil-ytdlp-pot-provider-gxzh.onrender.com",
@@ -230,10 +230,8 @@ _INFO_CACHE: dict = {}
 CACHE_TTL = 300  # 5 minutes
 
 YOUTUBE_ATTEMPTS = [
-    {"use_cookies": False, "clients": ["android_vr", "tv", "tv_simply"]},
-    {"use_cookies": True, "clients": ["android_vr", "tv", "tv_simply"]},
-    {"use_cookies": True, "clients": ["tv", "web_safari"]},
-    {"use_cookies": False, "clients": ["web_safari", "tv"]},
+    {"use_cookies": False, "clients": ["mweb"]},
+    {"use_cookies": True, "clients": ["mweb"]},
 ]
 
 
@@ -245,7 +243,7 @@ def _ydl_attempts(need_cookies_available: bool = True):
             continue
         seen.append(attempt)
     if not seen:
-        seen = [{"use_cookies": False, "clients": ["android_vr", "tv", "tv_simply"]}]
+        seen = [{"use_cookies": False, "clients": ["mweb"]}]
     return seen
 
 
