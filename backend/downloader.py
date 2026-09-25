@@ -168,6 +168,7 @@ def build_ydl_opts(
     ).rstrip("/")
     opts = {
         "quiet": True,
+        "verbose": True,
         "noplaylist": True,
         "extract_flat": False,
         "nocheckcertificate": True,
