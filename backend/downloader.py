@@ -165,10 +165,6 @@ def build_ydl_opts(
     player_clients: list[str] | None = None,
 ) -> dict:
     clients = player_clients or ["mweb"]
-    bgutil_base_url = os.getenv(
-        "BGUTIL_BASE_URL",
-        "https://bgutil-ytdlp-pot-provider-gxzh.onrender.com",
-    ).rstrip("/")
     opts = {
         "quiet": True,
         "verbose": True,
@@ -194,7 +190,7 @@ def build_ydl_opts(
         "extractor_args": {
             **_youtube_extractor_args(clients),
             "youtubepot-bgutilhttp": {
-                "base_url": bgutil_base_url,
+                "base_url": ["https://bgutil-ytdlp-pot-provider-gxzh.onrender.com"],
             },
         },
         "http_headers": {
