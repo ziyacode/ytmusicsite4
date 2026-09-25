@@ -15,6 +15,8 @@ from cookies_util import cookie_status, cookie_storage_path, decode_cookie_blob,
 DOWNLOAD_DIR = Path(__file__).parent / "downloads"
 DOWNLOAD_DIR.mkdir(exist_ok=True)
 
+COOKIE_PATH = Path(__file__).parent / "cookies.txt"
+
 BIN_DIR = Path(__file__).parent / "bin"
 BIN_DIR.mkdir(exist_ok=True)
 
@@ -118,6 +120,7 @@ def get_cookie_file() -> str | None:
     candidates = [
         env_cookie_path,
         DOWNLOAD_DIR / "cookies.txt",
+        COOKIE_PATH,
         Path(__file__).parent.parent / "cookies.txt",
         Path("cookies.txt"),
     ]
