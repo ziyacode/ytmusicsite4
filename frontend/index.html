@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="az" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="YouTube, TikTok, Instagram və digər platformalardan pulsuz və maksimum sürətli video və musiqi yükləyici" />
+  <title>MediaGet — Video & Musiqi Yükləyici</title>
+
+  <!-- Favicon (emoji) -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⬇️</text></svg>" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50:  '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.3s ease forwards',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Google Fonts (Inter) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+</head>
+
+<body class="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 theme-transition flex flex-col justify-between">
+
+  <!-- ══════════════════════════════════════════════════
+       ARXA FON GRADİENTİ
+  ══════════════════════════════════════════════════ -->
+  <div class="fixed inset-0 bg-gradient-hero pointer-events-none" aria-hidden="true"></div>
+
+  <!-- ══════════════════════════════════════════════════
+       HEADER
+  ══════════════════════════════════════════════════ -->
+  <header class="relative z-10 flex items-center justify-between px-6 py-4 max-w-4xl mx-auto w-full">
+    <!-- Logo -->
+    <a href="#" onclick="location.reload()" class="flex items-center gap-2 group cursor-pointer select-none">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center text-white shadow-md shadow-brand-500/20 group-hover:scale-105 transition-transform">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </div>
+      <span class="font-bold text-xl tracking-tight text-gray-900 dark:text-white">
+        Media<span class="text-brand-500">Get</span>
+      </span>
+    </a>
+
+    <!-- Sağ menyu / Dark-Light mode düyməsi -->
+    <div class="flex items-center gap-3">
+      <div class="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span>Ultra Sürətli Deno v2</span>
+      </div>
+      <button
+        id="theme-toggle"
+        aria-label="Mövzu dəyişdir"
+        class="p-2.5 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700
+               text-gray-600 dark:text-gray-300 hover:text-brand-500 dark:hover:text-brand-500
+               hover:border-brand-500 dark:hover:border-brand-500
+               transition-all duration-200 shadow-sm"
+      >
+        <span id="theme-icon"></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════
+       ANA MƏZMUN
+  ══════════════════════════════════════════════════ -->
+  <main class="relative z-10 flex flex-col items-center px-4 pb-16 pt-4 max-w-2xl mx-auto w-full">
+
+    <!-- Başlıq -->
+    <div class="text-center mb-8 space-y-2">
+      <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-gray-900 dark:text-white leading-tight">
+        Videonu <span class="bg-gradient-to-r from-brand-500 to-purple-500 bg-clip-text text-transparent">maksimum sürətlə</span> yüklə
+      </h1>
+      <p class="text-sm sm:text-base text-gray-500 dark:text-gray-400 max-w-md mx-auto">
+        YouTube, Shorts, TikTok, Instagram və 1000+ saytdan birbaşa cihazınıza.
+      </p>
+    </div>
+
+    <!-- ── ƏSAS KART ─────────────────────────────────────── -->
+    <div class="w-full glass-card bg-white/85 dark:bg-gray-900/85 border border-gray-200 dark:border-gray-800
+                rounded-3xl shadow-2xl shadow-brand-500/5 p-5 sm:p-7 space-y-5">
+
+      <!-- 1) URL GİRİŞ SAHƏSİ -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <label for="url-input" class="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+            🔗 Video və ya Musiqi linki:
+          </label>
+          <!-- Platform Badge -->
+          <div
+            id="platform-badge"
+            class="hidden items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full
+                   bg-gray-100 dark:bg-gray-800"
+          >
+            <span id="platform-icon" class="text-sm"></span>
+            <span id="platform-name" class="text-gray-700 dark:text-gray-300"></span>
+            <span class="text-gray-400 text-[10px]">· tanındı</span>
+          </div>
+        </div>
+
+        <div class="relative flex items-center">
+          <input
+            id="url-input"
+            type="url"
+            placeholder="https://www.youtube.com/watch?v=..."
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+            aria-label="Video linki"
+            class="w-full pl-4 pr-28 py-3.5 sm:py-4 text-sm sm:text-base rounded-2xl
+                   bg-gray-50 dark:bg-gray-800/80 border-2 border-gray-200 dark:border-gray-700/80
+                   text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500
+                   focus:border-brand-500 dark:focus:border-brand-500 transition-all duration-200"
+          />
+
+          <!-- Sağ düymələr (Yapışdır & Sil) -->
+          <div class="absolute right-2.5 flex items-center gap-1">
+            <button
+              id="clear-btn"
+              type="button"
+              aria-label="Linki sil"
+              title="Təmizlə"
+              class="hidden p-1.5 rounded-xl text-gray-400 hover:text-gray-600
+                     dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24"
+                   fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+            <button
+              id="paste-btn"
+              type="button"
+              aria-label="Buferdən yapışdır"
+              title="Buferdən yapışdır"
+              class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold
+                     bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-300
+                     hover:bg-brand-100 dark:hover:bg-brand-800/40 transition-all active:scale-95"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+              <span>Yapışdır</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2) MEDİA MƏLUMATI (Thumbnail + Başlıq) -->
+      <div id="media-info"
+           class="hidden items-center gap-3 sm:gap-4 p-3.5 sm:p-4 rounded-2xl bg-gray-50/80 dark:bg-gray-800/50
+                  border border-gray-100 dark:border-gray-800">
+        <!-- Thumbnail -->
+        <img
+          id="thumbnail-img"
+          src=""
+          alt="Video örtüyü"
+          class="hidden w-24 h-16 sm:w-28 sm:h-18 rounded-xl object-cover flex-shrink-0 shadow-md border border-gray-200 dark:border-gray-700"
+          loading="lazy"
+        />
+        <!-- Mətn -->
+        <div class="flex-1 min-w-0 space-y-1">
+          <p id="media-title"
+             class="font-semibold text-gray-900 dark:text-white text-xs sm:text-sm line-clamp-2 leading-snug">
+          </p>
+          <div class="flex items-center gap-2 flex-wrap text-[11px] sm:text-xs text-gray-500 dark:text-gray-400">
+            <span id="media-uploader" class="truncate max-w-[140px] font-medium text-gray-700 dark:text-gray-300"></span>
+            <span id="media-duration" class="text-gray-400 dark:text-gray-500"></span>
+            <span id="media-size" class="hidden font-semibold px-2 py-0.5 rounded-full bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-300"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3) FORMAT SEÇİMİ -->
+      <div id="format-section" class="hidden flex-col gap-3">
+        <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          Format seçin
+        </p>
+
+        <div class="grid grid-cols-2 gap-3">
+          <!-- MP4 -->
+          <div class="format-card selected p-3.5 rounded-2xl border-2 border-brand-500
+                      bg-white dark:bg-gray-800/90 cursor-pointer select-none transition-all shadow-sm"
+               data-format="mp4" id="format-mp4-card">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center text-xl flex-shrink-0">
+                🎬
+              </div>
+              <div class="text-left">
+                <p class="font-bold text-sm text-gray-900 dark:text-white">Video (MP4)</p>
+                <p class="text-[11px] text-gray-500 dark:text-gray-400">Ən yüksək keyfiyyət</p>
+              </div>
+              <input type="radio" id="format-mp4" name="format" value="mp4"
+                     class="sr-only" checked />
+            </div>
+          </div>
+
+          <!-- MP3 -->
+          <div class="format-card p-3.5 rounded-2xl border-2 border-gray-200 dark:border-gray-700
+                      bg-white dark:bg-gray-800/90 cursor-pointer select-none transition-all shadow-sm"
+               data-format="mp3" id="format-mp3-card">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center text-xl flex-shrink-0">
+                🎵
+              </div>
+              <div class="text-left">
+                <p class="font-bold text-sm text-gray-900 dark:text-white">Audio (MP3)</p>
+                <p class="text-[11px] text-gray-500 dark:text-gray-400">192 kbps musiqi</p>
+              </div>
+              <input type="radio" id="format-mp3" name="format" value="mp3"
+                     class="sr-only" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Watermark seçimi (TikTok/Instagram) -->
+        <div id="watermark-section"
+             class="hidden items-center justify-between p-3 rounded-2xl
+                    bg-purple-50/70 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800/40">
+          <div class="flex items-center gap-2.5">
+            <span class="text-lg" aria-hidden="true">🚫</span>
+            <div>
+              <p class="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200">
+                Loqosuz (Watermark-sız) yüklə
+              </p>
+              <p class="text-[11px] text-gray-500 dark:text-gray-400">
+                Orijinal təmiz video faylı
+              </p>
+            </div>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer" aria-label="Loqosuz yüklə">
+            <input id="watermark-toggle" type="checkbox" checked class="sr-only peer" />
+            <div class="w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full peer
+                        peer-checked:bg-brand-500 peer-focus:ring-2 peer-focus:ring-brand-500/40
+                        after:content-[''] after:absolute after:top-[2px] after:left-[2px]
+                        after:bg-white after:rounded-full after:h-5 after:w-5
+                        after:transition-all peer-checked:after:translate-x-5
+                        transition-colors duration-200">
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- 4) YÜKLƏ DÜYMƏSİ -->
+      <button
+        id="download-btn"
+        disabled
+        aria-label="Yüklə"
+        class="btn-primary w-full flex items-center justify-center gap-2.5
+               px-6 py-3.5 sm:py-4 rounded-2xl text-white font-bold text-base sm:text-lg
+               shadow-lg shadow-brand-500/25 active:scale-[0.99]
+               disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+      >
+        <span id="download-btn-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        </span>
+        <span id="download-btn-text">Yüklə</span>
+      </button>
+
+      <!-- 5) REAL-TIME PROGRESS BAR -->
+      <div id="progress-section" class="hidden flex-col gap-2.5 p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800">
+        <!-- Status & Faiz -->
+        <div class="flex items-center justify-between text-xs sm:text-sm">
+          <div class="flex items-center gap-2 font-semibold text-gray-800 dark:text-gray-200">
+            <div class="spinner w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+            <span id="progress-phase-text">Yüklənir...</span>
+          </div>
+          <span class="font-extrabold text-brand-600 dark:text-brand-400 text-sm sm:text-base font-mono" id="progress-percent">0%</span>
+        </div>
+
+        <!-- Bar -->
+        <div class="w-full h-3 bg-gray-200 dark:bg-gray-700/60 rounded-full overflow-hidden p-0.5">
+          <div id="progress-bar"
+               class="progress-bar-fill h-full rounded-full transition-all duration-300"
+               style="width: 0%"
+               role="progressbar"
+               aria-valuenow="0"
+               aria-valuemin="0"
+               aria-valuemax="100">
+          </div>
+        </div>
+
+        <!-- Sürət, Qalan vaxt və Həcm -->
+        <div class="flex items-center justify-between text-[11px] sm:text-xs text-gray-500 dark:text-gray-400">
+          <div class="flex items-center gap-2">
+            <span id="progress-speed" class="font-mono font-medium text-emerald-600 dark:text-emerald-400"></span>
+            <span id="progress-size" class="text-gray-500 dark:text-gray-400"></span>
+          </div>
+          <span id="progress-eta" class="font-mono"></span>
+        </div>
+      </div>
+
+      <!-- 6) NƏTİCƏ (Tamamlandı) -->
+      <div id="result-section"
+           class="hidden flex-col items-center gap-3.5 p-5 rounded-2xl
+                  bg-emerald-500/10 border border-emerald-500/30 text-center">
+        <div class="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-2xl success-check">
+          ✓
+        </div>
+        <div class="space-y-1 w-full px-2">
+          <p class="font-bold text-emerald-600 dark:text-emerald-400 text-base">Yükləmə Hazırdır! 🎉</p>
+          <p id="result-filename" class="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-100 break-words line-clamp-2"></p>
+          <div class="flex items-center justify-center gap-2 text-xs pt-1">
+            <span id="result-filesize" class="font-bold px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"></span>
+            <span id="result-format" class="font-bold px-2 py-0.5 rounded-md bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300"></span>
+          </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row items-center gap-2 w-full pt-1">
+          <a id="download-link"
+             href="#"
+             class="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl
+                    bg-emerald-600 hover:bg-emerald-700 text-white font-bold
+                    text-sm transition-all shadow-md shadow-emerald-600/30 active:scale-95">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            <span id="download-link-text">Cihaza Endir</span>
+          </a>
+          <button
+            id="reset-btn"
+            type="button"
+            class="w-full sm:w-auto px-4 py-3 rounded-xl text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors whitespace-nowrap"
+          >
+            🔄 Yeni video
+          </button>
+        </div>
+      </div>
+
+      <!-- 7) XƏTA BÖLMƏSİ -->
+      <div id="error-section"
+           class="hidden flex-col gap-2.5 p-4 rounded-2xl
+                  bg-rose-500/10 border border-rose-500/30">
+        <div class="flex items-start gap-3">
+          <span class="text-xl flex-shrink-0" aria-hidden="true">⚠️</span>
+          <div class="space-y-1">
+            <p class="font-bold text-rose-600 dark:text-rose-400 text-sm">
+              Xəta baş verdi
+            </p>
+            <p id="error-message" class="text-xs sm:text-sm text-rose-600/90 dark:text-rose-300/90 leading-relaxed"></p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3 pt-1 pl-8">
+          <button
+            id="error-retry-btn"
+            type="button"
+            class="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition-all shadow-sm"
+          >
+            🔄 Yenidən cəhd et
+          </button>
+          <button
+            onclick="resetToReady(); document.getElementById('url-input').focus();"
+            class="text-xs text-rose-600 dark:text-rose-400 hover:underline"
+          >
+            Ləğv et
+          </button>
+        </div>
+      </div>
+
+    </div>
+    <!-- / KART SON -->
+
+    <!-- ── Dəstəklənən Platformalar ────────────────────── -->
+    <div class="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs
+                text-gray-500 dark:text-gray-400">
+      <span class="font-medium text-gray-400 dark:text-gray-500">Dəstəklənir:</span>
+      <span class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 font-medium">
+        ▶️ YouTube & Shorts
+      </span>
+      <span class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-500/10 text-gray-700 dark:text-gray-300 border border-gray-500/20 font-medium">
+        🎵 TikTok
+      </span>
+      <span class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20 font-medium">
+        📸 Instagram
+      </span>
+      <span class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-medium">
+        🐦 Twitter/X
+      </span>
+      <span class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-medium">
+        🌐 +1000 sayt
+      </span>
+    </div>
+
+    <!-- ── Tez-tez soruşulan suallar ── -->
+    <section class="mt-10 w-full space-y-2.5" aria-label="FAQ">
+      <h2 class="text-sm font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 text-center">
+        Məlumat və Kömək
+      </h2>
+
+      <details class="group p-3.5 rounded-2xl bg-white/70 dark:bg-gray-900/60 border
+                      border-gray-200 dark:border-gray-800 cursor-pointer transition-all">
+        <summary class="font-semibold text-xs sm:text-sm text-gray-800 dark:text-gray-200 list-none flex
+                        items-center justify-between gap-2 select-none">
+          YouTube videoları niyə daha sürətli yüklənir?
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0 transition-transform
+               group-open:rotate-180 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </summary>
+        <p class="mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+          MediaGet arxa fonda rəsmi Deno JavaScript mühərriki və 8 paralel axınlı yükləmə texnologiyasından istifadə edir. YouTube sürət məhdudiyyətləri aradan qaldırılır və fayllar birbaşa server tərəfindən sürətlə birləşdirilir.
+        </p>
+      </details>
+
+      <details class="group p-3.5 rounded-2xl bg-white/70 dark:bg-gray-900/60 border
+                      border-gray-200 dark:border-gray-800 cursor-pointer transition-all">
+        <summary class="font-semibold text-xs sm:text-sm text-gray-800 dark:text-gray-200 list-none flex
+                        items-center justify-between gap-2 select-none">
+          TikTok videolarını necə loqosuz (watermark-sız) endirmək olar?
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0 transition-transform
+               group-open:rotate-180 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </summary>
+        <p class="mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+          TikTok linkini yapışdırdıqda "Loqosuz yüklə" açarı avtomatik aktiv olur. "Yüklə" düyməsini sıxmaq kifayətdir — video loqosuz təmiz şəkildə endiriləcək.
+        </p>
+      </details>
+    </section>
+
+  </main>
+
+  <!-- ══════════════════════════════════════════════════
+       FOOTER
+  ══════════════════════════════════════════════════ -->
+  <footer class="relative z-10 text-center py-4 text-xs text-gray-400 dark:text-gray-600 border-t border-gray-200/50 dark:border-gray-800/50">
+    <p>© 2026 MediaGet · Şəxsi istifadə üçün ultra sürətli yükləyici</p>
+  </footer>
+
+  <!-- ══════════════════════════════════════════════════
+       TOAST BİLDİRİŞİ
+  ══════════════════════════════════════════════════ -->
+  <div id="toast"
+       role="alert"
+       aria-live="assertive"
+       class="hidden fixed bottom-6 right-4 sm:right-6 z-50 flex items-center gap-3
+              px-5 py-3 rounded-2xl text-white text-xs sm:text-sm font-semibold shadow-2xl
+              max-w-xs sm:max-w-sm transition-all duration-300">
+    <span id="toast-message"></span>
+    <button
+      onclick="this.parentElement.classList.add('hidden')"
+      aria-label="Bağla"
+      class="ml-auto p-0.5 hover:opacity-70 transition-opacity"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24"
+           fill="none" stroke="currentColor" stroke-width="2.5">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- ── JavaScript ──────────────────────────────────────── -->
+  <script src="app.js"></script>
+</body>
+</html>

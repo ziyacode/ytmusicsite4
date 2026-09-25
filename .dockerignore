@@ -1,0 +1,13 @@
+backend/venv
+backend/downloads/*.mp4
+backend/downloads/*.mp3
+backend/downloads/*.webm
+backend/downloads/*.m4a
+__pycache__
+*/__pycache__
+*.pyc
+*.pyo
+*.pyd
+.git
+.gitignore
+.env
