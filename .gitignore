@@ -1,0 +1,9 @@
+backend/venv/
+__pycache__/
+*.pyc
+.python-version
+cookies.txt
+backend/cookies.txt
+backend/downloads/
+backend/bin/
+.env

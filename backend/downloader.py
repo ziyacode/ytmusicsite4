@@ -8,6 +8,9 @@ from pathlib import Path
 from typing import AsyncGenerator
 
 import yt_dlp
+from yt_dlp.networking.impersonate import ImpersonateTarget
+
+from cookies_util import cookie_status, cookie_storage_path, decode_cookie_blob, write_cookie_file
 
 DOWNLOAD_DIR = Path(__file__).parent / "downloads"
 DOWNLOAD_DIR.mkdir(exist_ok=True)
@@ -34,13 +37,23 @@ def detect_platform(url: str) -> str:
 
 def get_youtube_id(url: str) -> str | None:
     patterns = [
-        r'(?:v=|\/shorts\/|youtu\.be\/|\/embed\/)([0-9A-Za-z_-]{11})',
+        r'(?:v=|/shorts/|youtu\.be/|/embed/)([0-9A-Za-z_-]{11})',
     ]
     for pattern in patterns:
         match = re.search(pattern, url)
         if match:
             return match.group(1)
     return None
+
+
+def canonicalize_url(url: str) -> str:
+    """Strip playlist/radio params so YouTube tab extractor is not used."""
+    video_id = get_youtube_id(url)
+    if video_id:
+        if "/shorts/" in url.lower():
+            return f"https://www.youtube.com/shorts/{video_id}"
+        return f"https://www.youtube.com/watch?v={video_id}"
+    return url
 
 def sanitize_filename(title: str, max_length: int = 120) -> str:
     # Clean filename preserving alphanumeric, spaces, and international chars
@@ -63,71 +76,124 @@ if not FFMPEG_PATH:
     except Exception:
         FFMPEG_PATH = None
 
-# Deno JS runtime detection
-def get_deno_path() -> str | None:
-    candidates = [
-        BIN_DIR / "deno.exe",
-        BIN_DIR / "deno",
-        Path(__file__).parent.parent / "backend" / "bin" / "deno.exe",
-    ]
-    for cand in candidates:
+def _which_runtime(name: str, extra: list[Path] | None = None) -> str | None:
+    for cand in extra or []:
         if cand.exists():
             return str(cand.resolve())
-            
-    sys_deno = shutil.which("deno")
-    if sys_deno:
-        return sys_deno
+    found = shutil.which(name)
+    return found
 
-    return None
+
+def get_js_runtimes() -> dict:
+    runtimes = {}
+    deno = _which_runtime("deno", [
+        BIN_DIR / "deno.exe",
+        BIN_DIR / "deno",
+        Path("/usr/local/bin/deno"),
+    ])
+    node = _which_runtime("node", [
+        BIN_DIR / "node.exe",
+        BIN_DIR / "node",
+    ])
+    if deno:
+        runtimes["deno"] = {"path": deno}
+    if node:
+        runtimes["node"] = {"path": node}
+    return runtimes
+
 
 def get_cookie_file() -> str | None:
-    cookie_env = os.environ.get("YOUTUBE_COOKIES")
-    if cookie_env:
-        env_cookie_path = Path(__file__).parent / "cookies.txt"
+    env_cookie_path = cookie_storage_path()
+    for env_key in ("YOUTUBE_COOKIES_B64", "YOUTUBE_COOKIES"):
+        raw = os.environ.get(env_key)
+        if not raw:
+            continue
+        blob = raw if env_key == "YOUTUBE_COOKIES" else f"base64:{raw.strip()}"
         try:
-            if not env_cookie_path.exists() or env_cookie_path.read_text(encoding="utf-8") != cookie_env.strip():
-                env_cookie_path.write_text(cookie_env.strip(), encoding="utf-8")
+            write_cookie_file(blob, env_cookie_path)
             return str(env_cookie_path.resolve())
         except Exception:
-            pass
+            continue
 
     candidates = [
+        env_cookie_path,
         DOWNLOAD_DIR / "cookies.txt",
-        Path(__file__).parent / "cookies.txt",
         Path(__file__).parent.parent / "cookies.txt",
         Path("cookies.txt"),
     ]
     for cand in candidates:
         if cand.exists() and cand.stat().st_size > 50:
+            dest = env_cookie_path
+            try:
+                raw = cand.read_text(encoding="utf-8", errors="replace")
+                if cand.resolve() != dest.resolve() or "\t" not in raw:
+                    write_cookie_file(raw, dest)
+                    return str(dest.resolve())
+            except Exception:
+                return str(cand.resolve())
             return str(cand.resolve())
     return None
 
-def build_ydl_opts(custom_opts: dict | None = None, use_cookies: bool = True) -> dict:
-    opts = {
-        "quiet": True,
-        "noplaylist": True,
-        "nocheckcertificate": True,
-        "ignoreerrors": False,
-        "no_warnings": True,
-        "socket_timeout": 20,
-        "geo_bypass": True,
-        "retries": 3,
-        "fragment_retries": 5,
-        "file_access_retries": 3,
-        # Maximum speed optimizations:
-        "concurrent_fragment_downloads": 8,
-        "http_chunk_size": 10485760,  # 10MB chunk
-        "buffersize": 1024 * 64,
-        "http_headers": {
-            "Accept-Language": "en-US,en;q=0.9,az;q=0.8",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
+
+def _youtube_extractor_args(player_clients: list[str]) -> dict:
+    return {
+        "youtube": {
+            "player_client": player_clients,
+        },
+        "youtubetab": {
+            "skip": ["authcheck"],
         },
     }
 
-    # Enable native Deno JS execution for YouTube challenges (prevents throttling & signature errors)
-    deno_exe = get_deno_path()
-    if deno_exe:
-        opts["js_runtimes"] = {"deno": {"path": deno_exe}}
+
+def _merge_extractor_args(base: dict, extra: dict | None) -> dict:
+    merged = {k: dict(v) if isinstance(v, dict) else v for k, v in (base or {}).items()}
+    for key, value in (extra or {}).items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = {**merged[key], **value}
+        else:
+            merged[key] = value
+    return merged
+
+
+def build_ydl_opts(
+    custom_opts: dict | None = None,
+    use_cookies: bool = True,
+    player_clients: list[str] | None = None,
+) -> dict:
+    clients = player_clients or ["android_vr", "tv", "tv_simply", "web_safari"]
+    opts = {
+        "quiet": True,
+        "noplaylist": True,
+        "extract_flat": False,
+        "nocheckcertificate": True,
+        "ignoreerrors": False,
+        "no_warnings": True,
+        "socket_timeout": 30,
+        "geo_bypass": True,
+        "geo_bypass_country": "US",
+        "retries": 5,
+        "extractor_retries": 3,
+        "fragment_retries": 8,
+        "file_access_retries": 3,
+        "concurrent_fragment_downloads": 8,
+        "http_chunk_size": 10485760,
+        "buffersize": 1024 * 64,
+        "sleep_interval_requests": 0.5,
+        "extractor_args": _youtube_extractor_args(clients),
+        "http_headers": {
+            "Accept-Language": "en-US,en;q=0.9,az;q=0.8",
+        },
+    }
+
+    try:
+        opts["impersonate"] = ImpersonateTarget.from_str("chrome")
+    except Exception:
+        pass
+
+    js_runtimes = get_js_runtimes()
+    if js_runtimes:
+        opts["js_runtimes"] = js_runtimes
         opts["remote_components"] = ["ejs:github"]
 
     if FFMPEG_PATH:
@@ -138,15 +204,70 @@ def build_ydl_opts(custom_opts: dict | None = None, use_cookies: bool = True) ->
         if cookie_path and os.path.exists(cookie_path):
             opts["cookiefile"] = cookie_path
 
-    if custom_opts:
-        opts.update(custom_opts)
-
+    custom = dict(custom_opts or {})
+    extra_extractor_args = custom.pop("extractor_args", None)
+    opts.update(custom)
+    opts["extractor_args"] = _merge_extractor_args(opts.get("extractor_args") or {}, extra_extractor_args)
     return opts
 
 _INFO_CACHE: dict = {}
 CACHE_TTL = 300  # 5 minutes
 
+YOUTUBE_ATTEMPTS = [
+    {"use_cookies": False, "clients": ["android_vr", "tv", "tv_simply"]},
+    {"use_cookies": True, "clients": ["android_vr", "tv", "tv_simply"]},
+    {"use_cookies": True, "clients": ["tv", "web_safari"]},
+    {"use_cookies": False, "clients": ["web_safari", "tv"]},
+]
+
+
+def _ydl_attempts(need_cookies_available: bool = True):
+    cookie_file = get_cookie_file() if need_cookies_available else None
+    seen = []
+    for attempt in YOUTUBE_ATTEMPTS:
+        if attempt["use_cookies"] and not cookie_file:
+            continue
+        seen.append(attempt)
+    if not seen:
+        seen = [{"use_cookies": False, "clients": ["android_vr", "tv", "tv_simply"]}]
+    return seen
+
+
+def _ydl_extract(opts: dict, url: str, download: bool):
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            return ydl.extract_info(url, download=download)
+    except Exception as exc:
+        if opts.get("impersonate") and "impersonate" in str(exc).lower():
+            opts = dict(opts)
+            opts.pop("impersonate", None)
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                return ydl.extract_info(url, download=download)
+        raise
+
+
+def _extract_info_sync(url: str, skip_download: bool, extra_opts: dict | None = None):
+    last_error = None
+    for attempt in _ydl_attempts():
+        try:
+            opts = build_ydl_opts(
+                {
+                    **(extra_opts or {}),
+                    "skip_download": skip_download,
+                    "playlist_items": "1",
+                },
+                use_cookies=attempt["use_cookies"],
+                player_clients=attempt["clients"],
+            )
+            return _ydl_extract(opts, url, download=not skip_download)
+        except Exception as exc:
+            last_error = exc
+            continue
+    raise last_error or ValueError("Video məlumatları alına bilmədi.")
+
+
 async def fetch_info(url: str) -> dict:
+    url = canonicalize_url(url)
     now = time.time()
     if url in _INFO_CACHE:
         ts, cached = _INFO_CACHE[url]
@@ -155,25 +276,12 @@ async def fetch_info(url: str) -> dict:
 
     loop = asyncio.get_running_loop()
 
-    def _extract(use_cookies: bool):
-        opts = build_ydl_opts({
-            "skip_download": True,
-            "playlist_items": "1",
-        }, use_cookies=use_cookies)
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            return ydl.extract_info(url, download=False)
-
     try:
-        # First attempt (with cookies if available)
-        info = await loop.run_in_executor(None, _extract, True)
-    except Exception as e1:
-        # If cookies were broken or format rejected, fallback to without cookies
-        try:
-            info = await loop.run_in_executor(None, _extract, False)
-        except yt_dlp.utils.DownloadError as e2:
-            raise ValueError(_friendly_ydl_error(str(e2)))
-        except Exception as e2:
-            raise ValueError(_friendly_ydl_error(str(e2) or str(e1)))
+        info = await loop.run_in_executor(None, _extract_info_sync, url, True, None)
+    except yt_dlp.utils.DownloadError as e2:
+        raise ValueError(_friendly_ydl_error(str(e2)))
+    except Exception as e2:
+        raise ValueError(_friendly_ydl_error(str(e2)))
 
     if not info:
         raise ValueError("Video məlumatları alına bilmədi.")
@@ -222,10 +330,18 @@ def _friendly_ydl_error(msg: str) -> str:
         return "Bu video gizlidir (şəxsidir) və yüklənə bilmir."
     if "members only" in low or "requires a subscription" in low:
         return "Bu video yalnız abunəçilər/üzvlər üçündür."
-    if "bot" in low or "confirm you're not a bot" in low:
-        return "YouTube server IP ünvanını müvəqqəti məhdudlaşdırıb. Bir az sonra yenidən cəhd edin."
+    if "bot" in low or "confirm you're not a bot" in low or "not a bot" in low:
+        return (
+            "YouTube bot yoxlaması verdi. Təzə cookie lazımdır: incognito pəncərədə YouTube-a daxil olun, "
+            "https://www.youtube.com/robots.txt açın, cookies.txt ixrac edin və saytdan yükləyin. "
+            "Eyni sessiyanı brauzerdə açıq saxlamayın."
+        )
+    if "reload" in low:
+        return "YouTube səhifəni yenidən yükləmə tələb etdi. Bir az sonra yenidən cəhd edin."
     if "login" in low or "sign in" in low:
-        return "Bu video giriş və ya təhlükəsizlik təsdiqi tələb edir."
+        return "YouTube giriş tələb edir. Təzə YouTube cookies.txt faylı yükləyin."
+    if "robots.txt" in low or "authcheck" in low:
+        return "YouTube playlist/tab yoxlaması uğursuz oldu. Video linkini (watch?v=) göndərin, playlist yox."
     if "age" in low or "18" in low:
         return "Bu video yaş məhdudiyyətinə görə qorunur."
     if "copyright" in low or "removed" in low:
@@ -246,6 +362,7 @@ async def download_media(
     no_watermark: bool = True,
 ) -> AsyncGenerator[dict, None]:
     uid = get_uid()
+    url = canonicalize_url(url)
     platform = detect_platform(url)
     loop = asyncio.get_running_loop()
     queue = asyncio.Queue()
@@ -362,14 +479,14 @@ async def download_media(
 
     def _run_download():
         last_error = None
-        # Try with cookies first (if present), then fallback without cookies
-        cookie_file = get_cookie_file()
-        attempts = [True, False] if cookie_file else [False]
-        for use_cookies in attempts:
+        for attempt in _ydl_attempts():
             try:
-                ydl_opts = build_ydl_opts(custom_opts, use_cookies=use_cookies)
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(url, download=True)
+                ydl_opts = build_ydl_opts(
+                    custom_opts,
+                    use_cookies=attempt["use_cookies"],
+                    player_clients=attempt["clients"],
+                )
+                info = _ydl_extract(ydl_opts, url, download=True)
                     title = info.get("title") if info else "media"
                     loop.call_soon_threadsafe(queue.put_nowait, {
                         "type": "worker_done",

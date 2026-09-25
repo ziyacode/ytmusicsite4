@@ -7,11 +7,13 @@ from contextlib import asynccontextmanager
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+
+from cookies_util import cookie_status, cookie_storage_path, write_cookie_file
 
 from downloader import (
     DOWNLOAD_DIR,
@@ -21,11 +23,15 @@ from downloader import (
     fetch_info,
     sanitize_filename,
     _friendly_ydl_error,
+    get_cookie_file,
+    get_js_runtimes,
+    canonicalize_url,
 )
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     cleanup_stale_downloads()
+    get_cookie_file()
     yield
 
 app = FastAPI(
@@ -54,6 +60,10 @@ class DownloadRequest(BaseModel):
     format: str = "mp4"
     no_watermark: bool = True
 
+class CookieUploadRequest(BaseModel):
+    cookies: str
+    token: str = ""
+
 def normalize_url(url: str) -> str:
     u = url.strip()
     if not u:
@@ -62,13 +72,44 @@ def normalize_url(url: str) -> str:
         return f"https://{u}"
     return u
 
+def _cookie_token_ok(token: str) -> bool:
+    expected = os.environ.get("COOKIE_SECRET", "").strip()
+    if not expected:
+        return True
+    return (token or "").strip() == expected
+
+
 @app.get("/api/health")
 async def health_check():
-    return {"status": "ok", "message": "Server işləyir ✓"}
+    cookie_path = get_cookie_file()
+    runtimes = get_js_runtimes()
+    return {
+        "status": "ok",
+        "message": "Server işləyir ✓",
+        "python": sys.version.split()[0],
+        "js_runtimes": list(runtimes.keys()),
+        "cookies": cookie_status(cookie_path),
+        "cookie_secret_required": bool(os.environ.get("COOKIE_SECRET", "").strip()),
+    }
+
+
+@app.post("/api/cookies")
+async def upload_cookies(body: CookieUploadRequest, x_cookie_token: str | None = Header(default=None)):
+    token = body.token or x_cookie_token or ""
+    if not _cookie_token_ok(token):
+        raise HTTPException(status_code=403, detail="COOKIE_SECRET yanlışdır.")
+    try:
+        path = write_cookie_file(body.cookies, cookie_storage_path())
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=500, detail="Cookie faylı yazıla bilmədi.")
+    return {"ok": True, "cookies": cookie_status(str(path))}
+
 
 @app.post("/api/info")
 async def get_info(body: InfoRequest):
-    url = normalize_url(body.url)
+    url = canonicalize_url(normalize_url(body.url))
     if not url:
         raise HTTPException(status_code=400, detail="URL boş ola bilməz.")
     try:
@@ -81,7 +122,7 @@ async def get_info(body: InfoRequest):
 
 @app.post("/api/download")
 async def start_download(body: DownloadRequest):
-    url = normalize_url(body.url)
+    url = canonicalize_url(normalize_url(body.url))
     if not url:
         raise HTTPException(status_code=400, detail="URL boş ola bilməz.")
 

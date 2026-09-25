@@ -393,9 +393,8 @@ async function fetchMediaInfo(url) {
     });
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
       if (currentState === State.DETECTING) {
-        showError(err.detail || "Link emal edilə bilmədi. Linki yoxlayın.");
+        setState(State.READY);
       }
       return;
     }
@@ -651,6 +650,57 @@ document.addEventListener("keydown", (e) => {
 
 // Initialize default format
 selectFormat("mp4");
+
+async function refreshCookieStatus() {
+  const statusEl = document.getElementById("cookie-status-text");
+  if (!statusEl) return;
+  try {
+    const res = await fetch(`${CONFIG.API_BASE}/api/health`);
+    const data = await res.json();
+    const cookies = data.cookies || {};
+    if (cookies.loaded && cookies.has_login) {
+      statusEl.textContent = `Cookie aktiv (${cookies.count})`;
+    } else if (cookies.loaded) {
+      statusEl.textContent = "Cookie var, amma login cookie tapılmadı";
+    } else {
+      statusEl.textContent = "Cookie yüklənməyib";
+    }
+  } catch {
+    statusEl.textContent = "";
+  }
+}
+
+const cookieUploadBtn = document.getElementById("cookie-upload-btn");
+if (cookieUploadBtn) {
+  cookieUploadBtn.addEventListener("click", async () => {
+    const text = (document.getElementById("cookie-text") || {}).value || "";
+    const token = (document.getElementById("cookie-token") || {}).value || "";
+    const statusEl = document.getElementById("cookie-status-text");
+    if (!text.trim()) {
+      showToast("Cookie mətnini yapışdırın", "error");
+      return;
+    }
+    try {
+      const res = await fetch(`${CONFIG.API_BASE}/api/cookies`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cookies: text, token }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const detail = data.detail || "Cookie qəbul olunmadı";
+        if (statusEl) statusEl.textContent = detail;
+        showToast(typeof detail === "string" ? detail : "Cookie qəbul olunmadı", "error");
+        return;
+      }
+      if (statusEl) statusEl.textContent = `Cookie aktiv (${(data.cookies || {}).count || 0})`;
+      showToast("Cookie qəbul olundu", "success");
+    } catch {
+      showToast("Cookie yüklənə bilmədi", "error");
+    }
+  });
+  refreshCookieStatus();
+}
 
 // Global exports for inline HTML calls
 window.setState = setState;
