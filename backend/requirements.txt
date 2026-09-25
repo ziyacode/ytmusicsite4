@@ -8,3 +8,4 @@ python-dotenv==1.0.1
 imageio-ffmpeg>=0.5.1
 requests>=2.31.0
 curl_cffi>=0.16.0
+bgutil-ytdlp-pot-provider>=1.2.0

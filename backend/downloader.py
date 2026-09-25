@@ -162,6 +162,10 @@ def build_ydl_opts(
     player_clients: list[str] | None = None,
 ) -> dict:
     clients = player_clients or ["android_vr", "tv", "tv_simply", "web_safari"]
+    bgutil_base_url = os.getenv(
+        "BGUTIL_BASE_URL",
+        "https://bgutil-ytdlp-pot-provider-gxzh.onrender.com",
+    ).rstrip("/")
     opts = {
         "quiet": True,
         "noplaylist": True,
@@ -180,7 +184,15 @@ def build_ydl_opts(
         "http_chunk_size": 10485760,
         "buffersize": 1024 * 64,
         "sleep_interval_requests": 0.5,
-        "extractor_args": _youtube_extractor_args(clients),
+        "sleep_interval": 3,
+        "max_sleep_interval": 7,
+        "source_address": "0.0.0.0",
+        "extractor_args": {
+            **_youtube_extractor_args(clients),
+            "youtubepot-bgutilhttp": {
+                "base_url": bgutil_base_url,
+            },
+        },
         "http_headers": {
             "Accept-Language": "en-US,en;q=0.9,az;q=0.8",
         },
